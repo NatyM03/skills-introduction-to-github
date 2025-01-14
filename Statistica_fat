@@ -1,0 +1,181 @@
+library(UsingR)
+install.packages("ggplot2")
+library(ggplot2)
+install.packages("moments")
+library("moments")
+library(car)
+
+data(fat)
+dataset=fat
+attach(dataset)
+?fat
+View(fat)
+View(dataset)
+
+#Adaugam o noua coloana care reprezinta tipul fiecarui barbat "Normoponderal", "Supraponderal", "Obez"
+dataset$weight_group=cut(dataset$BMI,breaks=c(-Inf, 25, 30, Inf),labels=c( "Normoponderal", "Supraponderal", "Obez"))
+table(dataset$weight_group)
+
+#Adaugam o noua coloana care reprezinta categoriile de varsta: Tineri, Adulti, Varstnici, Batrani
+dataset$age_group=cut(dataset$age, breaks = c(17, 25, 45, 60, 92), labels = c("Tineri (18-25)", "Adulți (26-45)", "Vârstnici (46-60)", "Batrani (60+)"))
+
+#Pt barbatii supraponderali afisam varsta minima si maxima
+barbati_supraponderali=subset(dataset,dataset$weight_group=="Supraponderal")
+varsta_min=min(barbati_supraponderali$age)
+varsta_min
+varsta_max=max(barbati_supraponderali$age)
+varsta_max
+
+#Comparam varsta medie a barbatilor  care sunt normoponderali cu cea a barbatilor care sunt obezi
+b_norm=subset(dataset,dataset$weight_group=="Normoponderal")
+b_obezi=subset(dataset,dataset$weight_group=="Obez")
+mean(b_norm$age) #media varstei pentru normopondoreali
+mean(b_obezi$age) #media varstei pentru obezi
+
+#Mediana pentru variabila circumferinta coapsei
+median(dataset$thigh)
+
+#Media pentru variabila densitate
+mean(dataset$density)
+
+#Quantile pentru circumferinta abdomenului
+quantile(dataset$abdomen)
+
+#Deviatia standard
+sd(dataset$ankle)
+
+#Asimetria pentru circumferinta antebratului
+skewness(dataset$forearm) #asimetria distribuției
+
+#Aplatizarea pentru circumferinta antebratului
+kurtosis(dataset$forearm) #concentrarea valorilor în jurul mediei
+
+#Grafic de tip quantila-quantila pentru procentul de grasime care are distributie normala
+qqnorm(dataset$body.fat) 
+qqline(dataset$body.fat)
+
+#Afisam informatii despre barbatii  obezi ordonate descrescator dupa greutate
+barbati_obezi=subset(dataset,dataset$weight_group=="Obez")
+barbati_obezi[rev(order(barbati_obezi$weight)),]
+
+#Studiem relatia dintre greutate si procentajul de grasime si sa vedem ce corelatie este intre ele
+plot(weight,body.fat) #relatia dintre greutate si procentul de grasime
+cor(weight,body.fat) #corelatie liniara pozitiva 
+plot(dataset$abdomen,dataset$hip) #relatia dintre abdomen si circumferinta soldului
+cor(abdomen,hip) #corelatie liniara pozitiva 
+
+#Relatia dintre densitate si indicele de adipozitate
+plot(dataset$density,dataset$BMI) #relatia dintre densitate si indicele de masa 
+cor(density,BMI) #corelatie liniara negativa
+
+#Relatia dintre varsta si greutatea grupului
+boxplot(dataset$age~dataset$weight_group)
+#Relatia dintre greutate si greutatea grupului
+boxplot(dataset$weight~dataset$weight_group)
+#Relatia dintre procentul de grasime si varsta grupului
+boxplot(body.fat~dataset$age_group) 
+#Relatia dintre varsta grupului si indicele de masa
+ggplot(dataset)+ geom_boxplot(aes(x=age_group, y=BMI, fill=age_group))+scale_fill_brewer(palette="Pastel1") 
+#Histograme
+hist(dataset$ffweight) #predomina numarul barbatilor care au greutatea calculata fara grasime intre 120-140 
+hist(dataset$neck) #predomina numarul barbatilor care au circumferinta gatului intre 36-38
+
+#Tabel de contingenta
+table(dataset$weight_group,dataset$age_group) #numarul de observatii care fac parte din categoria greutatea grupui in raport cu categotia varstei
+
+#Barbatii au în medie un procent de grăsime corporală mai mare decât valoarea de referință de 20%.
+#H0:mu=20, Ha:mu<20, alpha=0.05
+t.test(body.fat, mu=20, alternative="less") #p-val<1.205e-07 => se respinge ipoteza nula, deci barbatii au în medie un procent de grăsime corporală mai mic decât valoarea de referință de 25%.
+
+#Verificam daca indicele de masa pentru batrani este acelasi si pentru tineri
+#H0: mu1-mu2=mu0, Ha: mu1-mu2!=mu0
+batrani=BMI[age>60]
+tineri=BMI[age<25]
+t.test(batrani,tineri,mu0=0,alternative="two.sided",paired=F) #p-val=0.012, deci mai mica decat 0.05 => se respinge H0, adica indicele de masa difera la batrani fata de tineri
+
+#Tinerii si adultii sunt mai predispusi la obezitate decat batranii
+#p1=proportia tinerilor si adultilor obezi, #p2=proportia batranilor obezi
+#H0: p1-p2=p0 Ha:p1-p2!=p0
+tobezi=subset(dataset, dataset$BMI>30 & dataset$age<45)
+View(tobezi)
+bobezi=subset(dataset, dataset$BMI>30 & dataset$age>45)
+tineri=subset(dataset, dataset$age<45)
+batrani=subset(dataset, dataset$age>45)
+nrto=nrow(tobezi)
+nrto
+nrbo=nrow(bobezi)
+nrbo
+nrt=nrow(tineri)
+nrt
+nrb=nrow(batrani)
+nrb
+matrice=matrix(c(nrto,nrt-nrto,nrbo,nrb-nrbo),nrow=2,byrow=T)
+matrice
+prop.test(matrice, alternative="greater") #p-val=0.811, deci mai mare decat 0.05 => nu se respinge ipoteza nula, deci nu avem suficiente motive sa credem ca tinerii si adultii sunt mai predispusi decat batranii
+
+#ANOVA
+boxplot(dataset$wrist~dataset$weight_group)
+leveneTest(dataset$wrist~dataset$weight_group)#p valoarea=0.1712 e mai mare decat 0.05 deci se poate folosi anova
+shapiro.test(dataset$wrist[dataset$weight_group=="Normoponderal"])
+shapiro.test(dataset$wrist[dataset$weight_group=="Supraponderal"])
+shapiro.test(dataset$wrist[dataset$weight_group=="Obez"])
+#Compararea mediilor circumferintei incheiturii mainii in functie de cele 3 grupuri de greutate
+summary(aov(dataset$body.fat~dataset$weight_group))#p valoarea este mica, deci exista diferente intre grupuri  
+pairwise.t.test(dataset$body.fat,dataset$weight_group) #sunt diferite doua cate doua 
+
+#Construim un model de regresie liniara care descrie relatia dintre procentul de grasime si circumferinta abdomenului
+plot(abdomen,body.fat,pch=16,col="blue")
+cor(abdomen,body.fat) #relatie strans legata pozitiv 0.81
+m11=lm(body.fat~abdomen) #construim modelul de regresie liniara
+m11
+#body.fat~=0.5849*abdomen-35.1966
+summary(m11) #proportia in care modelul explica relatia dintre abdomen si body.fat 0.66, p-val<2.2e-16 rezulta modelul este bun
+abline(m11) #dreapta de regresie
+shapiro.test(m11$residuals) #p-val=0.1455>0.05, deci erorile urmeaza distributie normala 
+plot(m11$fitted,m11$residuals)
+abline(h=0)#punctele sunt distribuite aleator in jurul liniei h=0, deci modelul este bun
+#Dorim sa predictionam procentajul de grasime al unei persoane in functie de dimensiunea abdomenului
+datenoi=data.frame(abdomen=c(92))
+predict(m11,datenoi,interval="predict",level=0.95) #persoana cu circumferinta abdomenului 92 are procentajul de grasime aproximativ 18.61%
+
+#Construim un model de regresie care descrie preocentul de grasime al unei persoane in functie de circumferinta gatului,pieptului,abdomenului,șoldului,coapsei,genunchiului,gleznei,bicepsului,antebratului,încheieturii
+d=data.frame(body.fat,neck,chest,abdomen,hip,thigh,knee,ankle,bicep,forearm,wrist)
+cor(d)
+m12=lm(body.fat~neck+chest+abdomen+hip+thigh+knee+ankle+bicep+forearm+wrist)#model regresie
+m12
+summary(m12)#modelul explica in proportie de 72%
+#p-val<0.05 deci modelul este bun
+#predictori semnificativi:gat,abdomen,sold si incheietura
+shapiro.test(m13$residuals)#erori distribuite normal
+plot(m12$fitted,m13$residuals)
+abline(h=0)#valori distribuite aleator deci modelul e bun
+library(car)
+vif(m12)# piept,abdomen,sold,coapsa>4 =>multicoliniaritate
+#Dorim sa predictionam procentajul de grasime pentru o persoana care are urmatoarele masuratori 
+#gat=38 ,piept=90 ,abdomen=90 ,sold=99 ,coapsa=55 ,genunchi=40 ,glezna=22, biceps=33, antebrat=28 ,incheietura=17
+nou=c(38,90,90,99,55,40,22,33,28,17)
+predict(m13, newdata = data.frame(neck = nou[1], chest = nou[2], abdomen = nou[3], hip = nou[4], thigh = nou[5], knee = nou[6], ankle = nou[7], bicep = nou[8], forearm = nou[9], wrist = nou[10]),  interval = "predict", level = 0.95)#body.fat aprox 18.60717
+
+#Construim un model de regresie care descrie preocentul de grasime al unei persoane in functie de circumferinta gatului,genunchiului,gleznei,bicepsului,antebratului,încheieturii
+#model fara predictorii pentru care vif>4
+d1=data.frame(body.fat,neck,knee,ankle,bicep,forearm,wrist)
+cor(d1)
+m13=lm(body.fat~neck+knee+ankle+bicep+forearm+wrist)#model regresie
+m13
+summary(m13)#predictori semnificativi:gat,genunchi,biceps
+#modelul explica in proportie de 33 ceea ce este putin
+#adaugam predictorul abdomen
+
+m14=lm(body.fat~neck+knee+ankle+bicep+forearm+wrist+abdomen)#model regresie
+m14
+summary(m14)#explica in proportie de 71%, p-val<0.05 deci modelul e bun
+shapiro.test(m14$residuals)#erori distribuite normal
+plot(m14$fitted,m14$residuals)
+abline(h=0)
+library(car)
+vif(m14)#toate valorile sub 4 
+#Dorim sa predictionam procentajul de grasime pentru o persoana care are urmatoarele masuratori 
+#gat=38 ,genunchi=40 ,glezna=22, biceps=33, antebrat=28 ,incheietura=17, abdomen=90
+nou=c(38,40,22,33,28,17,90)
+predict(m14, newdata = data.frame(neck = nou[1], knee = nou[2], ankle = nou[3], bicep = nou[4], forearm = nou[5], wrist = nou[6],abdomen=nou[7]), interval = "predict", level = 0.95)
+
